@@ -1,42 +1,37 @@
-var app=require('express')();
-var http=require('http').createServer(app);
-var io=require( 'socket.io' )(http);
-var url= require('url');
-var bodyParser=require("body-parser");
-const { response } = require('express');
-app.use(bodyParser())
-var clientResponseRef;
-app.get('/*',(req,res)=>{
-    var pathname=url.parse(req.url).pathname;
-    var obj={
-        pathname:pathname,
-        method:"get",
-        params:req.query
-    };
-    io.emit("page-request",obj);
-    clientResponseRef=res;
-})
-app.post('/*',(req,res)=>{
-    var pathname=url.parse(req.url).pathname;
-    var obj={
-        pathname:pathname,
-        method:"post",
-        params:req.body
-    };
-    io.emit("page-request",obj);
-    clientResponseRef=res;
-})
-io.on('connection',(socket)=>{
-console.log("a node connected");
-socket.on("page-response",(response)=>{
+const express = require('express');
+const http = require('http');
+const socketIO = require('socket.io');
 
-clientResponseRef.send(response);
-})
+const app = express();
+const server = http.createServer(app);
+const io = socketIO(server);
 
-})
-var server_port=process.env.PORT || 3000;
-http.listen(server_port,()=>{
+let clientSocket;
 
+io.on('connection', (socket) => {
+  console.log('A client connected');
+  clientSocket = socket;
+});
 
-    console.log("listening on:"+server_port);
-})
+app.all('*', (req, res) => {
+  const data = {
+    pathname: req.path,
+    method: req.method,
+    headers: req.headers,
+    body: req.body
+  };
+
+  if (clientSocket) {
+    clientSocket.emit('page-request', data);
+    clientSocket.once('page-response', (data) => {
+      res.set(data.headers);
+      res.status(data.statusCode).send(data.body);
+    });
+  } else {
+    res.status(500).send('No client connected');
+  }
+});
+
+server.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
