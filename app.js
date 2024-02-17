@@ -5,6 +5,8 @@ const socketIO = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
+require('events').EventEmitter.prototype._maxListeners = 100;
+
 
 let clientSocket;
 
